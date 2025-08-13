@@ -38,21 +38,17 @@ export async function sendManagerNotificationDirect(
   try {
     console.log(`📤 Отправка уведомления менеджеру @${MANAGER_USERNAME}...`);
 
-    // Форматируем сообщение
+    // Форматируем сообщение с прямыми ссылками
     const message = formatNotificationMessage(notification);
-
-    // Создаем inline кнопку для перехода к клиенту
-    const buttons = createClientButtons(notification);
 
     // Отправляем сообщение менеджеру напрямую
     try {
       await client.sendMessage(MANAGER_USERNAME, {
-        message: message,
-        buttons: buttons
+        message: message
       });
 
       console.log('✅ Уведомление отправлено менеджеру через личный аккаунт');
-      console.log('   Добавлена кнопка для быстрого перехода к клиенту');
+      console.log('   Ссылки на клиента добавлены в текст сообщения');
 
       // Сохраняем в историю эскалаций
       escalationHistory.set(notification.clientId, new Date());
@@ -78,8 +74,7 @@ export async function sendManagerNotificationDirect(
           if (result.users.length > 0) {
             const manager = result.users[0];
             await client.sendMessage(manager, {
-              message: message,
-              buttons: buttons
+              message: message
             });
 
             console.log('✅ Сообщение отправлено через поиск');
@@ -97,66 +92,14 @@ export async function sendManagerNotificationDirect(
   } catch (error: any) {
     console.error('❌ Ошибка при отправке уведомления менеджеру:', error.message);
 
-    // Пробуем отправить без кнопок
-    console.log('🔄 Пробуем отправить без кнопок...');
-
-    try {
-      const simpleMessage = formatSimpleMessage(notification);
-
-      await client.sendMessage(MANAGER_USERNAME, {
-        message: simpleMessage
-      });
-
-      console.log('✅ Отправлено простое сообщение');
-      escalationHistory.set(notification.clientId, new Date());
-      await saveEscalationToDatabase(notification);
-      return true;
-
-    } catch (fallbackError) {
-      console.error('❌ Не удалось отправить даже простое сообщение:', fallbackError);
-
-      // Сохраняем уведомление для повторной отправки
-      await saveNotificationForLater(notification);
-      return false;
-    }
+    // Сохраняем уведомление для повторной отправки
+    await saveNotificationForLater(notification);
+    return false;
   }
 }
 
 /**
- * Создает inline кнопки для перехода к клиенту
- */
-function createClientButtons(notification: ManagerNotification): any[][] {
-  const buttons = [];
-
-  // Основная кнопка - написать клиенту
-  const mainButton = {
-    text: `💬 Написать ${notification.clientName}`,
-    url: `tg://user?id=${notification.clientId}`
-  };
-
-  buttons.push([mainButton]);
-
-  // Если есть username, добавляем альтернативную кнопку
-  if (notification.clientUsername) {
-    buttons.push([{
-      text: `📱 @${notification.clientUsername}`,
-      url: `https://t.me/${notification.clientUsername}`
-    }]);
-  }
-
-  // Для высокого приоритета добавляем кнопку быстрого ответа
-  if (notification.priority === 'high') {
-    buttons.push([{
-      text: '🚨 Срочно ответить',
-      url: `tg://user?id=${notification.clientId}`
-    }]);
-  }
-
-  return buttons;
-}
-
-/**
- * Форматирует сообщение для менеджера
+ * Форматирует сообщение для менеджера с прямыми ссылками
  */
 function formatNotificationMessage(notification: ManagerNotification): string {
   const priorityEmoji = {
@@ -172,8 +115,17 @@ function formatNotificationMessage(notification: ManagerNotification): string {
   message += `👤 Клиент: ${notification.clientName}\n`;
   message += `🆔 ID: ${notification.clientId}\n`;
 
+  // Добавляем прямые ссылки для связи с клиентом
+  message += `\n📱 Связаться с клиентом:\n`;
+
   if (notification.clientUsername) {
-    message += `📱 Username: @${notification.clientUsername}\n`;
+    // Если есть username - даем прямую ссылку
+    message += `➤ https://t.me/${notification.clientUsername}\n`;
+    message += `➤ @${notification.clientUsername}\n`;
+  } else {
+    // Если нет username - даем ссылку через ID
+    message += `➤ tg://user?id=${notification.clientId}\n`;
+    message += `   (нажмите на ссылку выше)\n`;
   }
 
   message += `\n💬 Сообщение клиента:\n"${notification.clientMessage}"\n\n`;
@@ -182,45 +134,10 @@ function formatNotificationMessage(notification: ManagerNotification): string {
     message += `⚡ Требуется срочный ответ!\n\n`;
   }
 
-  message += `👇 Используйте кнопки ниже для быстрого перехода к клиенту\n\n`;
-
-  message += `⏰ ${new Date().toLocaleString('ru-RU')}\n`;
-  message += `#эскалация #${notification.category}`;
-
-  return message;
-}
-
-/**
- * Форматирует простое сообщение без кнопок
- */
-function formatSimpleMessage(notification: ManagerNotification): string {
-  const priorityEmoji = {
-    high: '🔴',
-    medium: '🟡',
-    low: '🟢'
-  };
-
-  const emoji = priorityEmoji[notification.priority];
-
-  let message = `${emoji} ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
-  message += `📋 Причина: ${notification.reason}\n`;
-  message += `👤 Клиент: ${notification.clientName}\n`;
-  message += `🆔 ID для поиска: ${notification.clientId}\n`;
-
-  if (notification.clientUsername) {
-    message += `📱 Можно написать через: @${notification.clientUsername}\n`;
-  }
-
-  message += `\n💬 Сообщение клиента:\n"${notification.clientMessage}"\n\n`;
-
-  if (notification.priority === 'high') {
-    message += `⚡ Требуется срочный ответ!\n\n`;
-  }
-
-  message += `🔍 Как найти клиента:\n`;
+  // Инструкция если ссылки не работают
+  message += `📝 Если ссылка не работает:\n`;
   message += `1. Скопируйте ID: ${notification.clientId}\n`;
   message += `2. Используйте поиск в Telegram\n`;
-
   if (notification.clientUsername) {
     message += `3. Или найдите по username: @${notification.clientUsername}\n`;
   }
@@ -379,10 +296,10 @@ export async function initializeNotificationTables(): Promise<void> {
  */
 export async function sendTestNotification(client: TelegramClient): Promise<boolean> {
   const testNotification: ManagerNotification = {
-    clientName: 'Тестовый клиент',
-    clientId: '123456789',
-    clientUsername: 'test_client',
-    clientMessage: 'Хочу купить курс ДНК ЦВЕТА, помогите оформить заказ',
+    clientName: 'Андрей Могучев',
+    clientId: '186757140',
+    clientUsername: 'aMoguchev',
+    clientMessage: 'Хочу оформить заказ через ИП',
     reason: '🧪 Тестирование системы эскалации',
     category: 'test',
     priority: 'high'
@@ -395,7 +312,7 @@ export async function sendTestNotification(client: TelegramClient): Promise<bool
   if (result) {
     console.log('✅ Тестовое уведомление успешно отправлено!');
     console.log('📱 Проверьте личные сообщения менеджера @' + MANAGER_USERNAME);
-    console.log('🔘 Должны быть видны кнопки для перехода к клиенту');
+    console.log('🔗 В сообщении должны быть кликабельные ссылки на клиента');
   } else {
     console.log('❌ Не удалось отправить тестовое уведомление');
     console.log('Убедитесь, что аккаунт может писать менеджеру');

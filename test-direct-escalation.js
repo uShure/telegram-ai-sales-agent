@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
 /**
- * Тестирование эскалации через личный аккаунт с кнопками
- * Отправляет тестовое уведомление менеджеру с inline кнопками для перехода к клиенту
+ * Тестирование эскалации через личный аккаунт с прямыми ссылками
+ * Отправляет тестовое уведомление менеджеру с кликабельными ссылками в тексте
  */
 
 const { TelegramClient, Api } = require('telegram');
@@ -26,7 +26,7 @@ const rl = readline.createInterface({
 const question = (query) => new Promise((resolve) => rl.question(query, resolve));
 
 async function testDirectEscalation() {
-  console.log('🚀 Тестирование эскалации с кнопками для перехода к клиенту\n');
+  console.log('🚀 Тестирование эскалации с прямыми ссылками на клиента\n');
 
   // Проверяем конфигурацию
   if (!apiId || !apiHash || !phoneNumber) {
@@ -77,98 +77,77 @@ async function testDirectEscalation() {
     }
 
     console.log('\n📊 Выберите тип теста:');
-    console.log('1. Тест с реальным ID клиента (рабочие кнопки)');
-    console.log('2. Тест с вымышленным ID (кнопки не будут работать)');
+    console.log('1. Клиент с username (например @aMoguchev)');
+    console.log('2. Клиент без username (только ID)');
     console.log('3. Тест с разными приоритетами');
-    console.log('4. Тест простого сообщения без кнопок');
+    console.log('4. Автоматический тест');
 
     const testType = await question('Выберите (1-4): ');
 
     if (testType === '1') {
-      // Тест с реальным ID
-      const testClientId = await question('Введите реальный Telegram ID клиента: ');
+      // Тест с username
       const testClientName = await question('Введите имя клиента: ');
-      const testClientUsername = await question('Введите username клиента (без @, или пропустите): ');
+      const testClientId = await question('Введите Telegram ID клиента: ');
+      const testClientUsername = await question('Введите username клиента (без @): ');
 
-      const message = `🔴 ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
+      let message = `🔴 ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
       message += `📋 Причина: 🛒 Клиент готов оформить заказ\n`;
       message += `👤 Клиент: ${testClientName}\n`;
       message += `🆔 ID: ${testClientId}\n`;
-
-      if (testClientUsername) {
-        message += `📱 Username: @${testClientUsername}\n`;
-      }
-
-      message += `\n💬 Сообщение клиента:\n"Хочу купить курс ДНК ЦВЕТА"\n\n`;
+      message += `\n📱 Связаться с клиентом:\n`;
+      message += `➤ https://t.me/${testClientUsername}\n`;
+      message += `➤ @${testClientUsername}\n`;
+      message += `\n💬 Сообщение клиента:\n"Хочу оформить заказ через ИП"\n\n`;
       message += `⚡ Требуется срочный ответ!\n\n`;
-      message += `👇 Используйте кнопки ниже для быстрого перехода к клиенту\n\n`;
-      message += `⏰ ${new Date().toLocaleString('ru-RU')}\n`;
+      message += `📝 Если ссылка не работает:\n`;
+      message += `1. Скопируйте ID: ${testClientId}\n`;
+      message += `2. Используйте поиск в Telegram\n`;
+      message += `3. Или найдите по username: @${testClientUsername}\n`;
+      message += `\n⏰ ${new Date().toLocaleString('ru-RU')}\n`;
       message += `#эскалация #order`;
 
-      // Создаем кнопки
-      const buttons = [];
-
-      // Основная кнопка
-      buttons.push([{
-        text: `💬 Написать ${testClientName}`,
-        url: `tg://user?id=${testClientId}`
-      }]);
-
-      // Если есть username
-      if (testClientUsername) {
-        buttons.push([{
-          text: `📱 @${testClientUsername}`,
-          url: `https://t.me/${testClientUsername}`
-        }]);
-      }
-
-      // Кнопка срочного ответа
-      buttons.push([{
-        text: '🚨 Срочно ответить',
-        url: `tg://user?id=${testClientId}`
-      }]);
-
-      console.log(`\n📤 Отправка тестового сообщения с кнопками...`);
+      console.log(`\n📤 Отправка тестового сообщения с username...`);
 
       try {
         await client.sendMessage(MANAGER_USERNAME, {
-          message: message,
-          buttons: buttons
+          message: message
         });
 
-        console.log('✅ Сообщение с кнопками отправлено!');
+        console.log('✅ Сообщение отправлено!');
         console.log('📱 Проверьте личные сообщения менеджера');
-        console.log('🔘 Должны быть видны 2-3 кнопки для перехода к клиенту');
+        console.log('🔗 Ссылка https://t.me/' + testClientUsername + ' должна быть кликабельной');
 
       } catch (error) {
         console.error('❌ Ошибка отправки:', error.message);
       }
 
     } else if (testType === '2') {
-      // Тест с вымышленным ID
-      const message = `🟡 ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
+      // Тест без username
+      const testClientName = await question('Введите имя клиента: ');
+      const testClientId = await question('Введите Telegram ID клиента: ');
+
+      let message = `🟡 ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
       message += `📋 Причина: 💳 Вопрос о рассрочке\n`;
-      message += `👤 Клиент: Тестовый клиент\n`;
-      message += `🆔 ID: 123456789\n`;
+      message += `👤 Клиент: ${testClientName}\n`;
+      message += `🆔 ID: ${testClientId}\n`;
+      message += `\n📱 Связаться с клиентом:\n`;
+      message += `➤ tg://user?id=${testClientId}\n`;
+      message += `   (нажмите на ссылку выше)\n`;
       message += `\n💬 Сообщение клиента:\n"Можно ли оплатить в рассрочку?"\n\n`;
-      message += `👇 Используйте кнопки ниже для быстрого перехода к клиенту\n\n`;
-      message += `⏰ ${new Date().toLocaleString('ru-RU')}\n`;
+      message += `📝 Если ссылка не работает:\n`;
+      message += `1. Скопируйте ID: ${testClientId}\n`;
+      message += `2. Используйте поиск в Telegram\n`;
+      message += `\n⏰ ${new Date().toLocaleString('ru-RU')}\n`;
       message += `#эскалация #installment`;
 
-      const buttons = [[{
-        text: '💬 Написать Тестовому клиенту',
-        url: 'tg://user?id=123456789'
-      }]];
-
-      console.log(`\n📤 Отправка тестового сообщения с вымышленным ID...`);
+      console.log(`\n📤 Отправка тестового сообщения без username...`);
 
       await client.sendMessage(MANAGER_USERNAME, {
-        message: message,
-        buttons: buttons
+        message: message
       });
 
       console.log('✅ Сообщение отправлено');
-      console.log('⚠️ Кнопка не будет работать (вымышленный ID)');
+      console.log('🔗 Ссылка tg://user?id=' + testClientId + ' может работать в некоторых клиентах');
 
     } else if (testType === '3') {
       // Тест с разными приоритетами
@@ -177,22 +156,25 @@ async function testDirectEscalation() {
           priority: '🔴',
           reason: '🛒 Клиент готов оформить заказ',
           message: 'Хочу купить курс прямо сейчас!',
-          clientName: 'Анна Петрова',
-          clientId: '186757140'
+          clientName: 'Андрей Могучев',
+          clientId: '186757140',
+          clientUsername: 'aMoguchev'
         },
         {
           priority: '🟡',
           reason: '💳 Вопрос о рассрочке',
           message: 'Можно ли оплатить в рассрочку?',
           clientName: 'Мария Иванова',
-          clientId: '987654321'
+          clientId: '987654321',
+          clientUsername: null
         },
         {
           priority: '🟢',
           reason: '📋 Запрос программы курса',
           message: 'Пришлите подробную программу',
           clientName: 'Елена Сидорова',
-          clientId: '555666777'
+          clientId: '555666777',
+          clientUsername: 'elena_sid'
         }
       ];
 
@@ -201,52 +183,57 @@ async function testDirectEscalation() {
         const send = await question('');
 
         if (send.toLowerCase() === 'y') {
-          const msg = `${testCase.priority} ТЕСТ ЭСКАЛАЦИИ\n\n`;
+          let msg = `${testCase.priority} ТЕСТ ЭСКАЛАЦИИ\n\n`;
           msg += `📋 Причина: ${testCase.reason}\n`;
           msg += `👤 Клиент: ${testCase.clientName}\n`;
           msg += `🆔 ID: ${testCase.clientId}\n`;
+          msg += `\n📱 Связаться с клиентом:\n`;
+
+          if (testCase.clientUsername) {
+            msg += `➤ https://t.me/${testCase.clientUsername}\n`;
+            msg += `➤ @${testCase.clientUsername}\n`;
+          } else {
+            msg += `➤ tg://user?id=${testCase.clientId}\n`;
+            msg += `   (нажмите на ссылку выше)\n`;
+          }
+
           msg += `\n💬 Сообщение: "${testCase.message}"\n\n`;
-          msg += `👇 Используйте кнопку для перехода к клиенту\n\n`;
           msg += `⏰ ${new Date().toLocaleString('ru-RU')}`;
 
-          const buttons = [[{
-            text: `💬 Написать ${testCase.clientName}`,
-            url: `tg://user?id=${testCase.clientId}`
-          }]];
-
           await client.sendMessage(MANAGER_USERNAME, {
-            message: msg,
-            buttons: buttons
+            message: msg
           });
 
-          console.log('✅ Отправлено с кнопкой');
+          console.log('✅ Отправлено');
         }
       }
 
     } else if (testType === '4') {
-      // Тест простого сообщения без кнопок
-      const simpleMessage = `🔴 ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
-      simpleMessage += `📋 Причина: Проблема с доступом к личному кабинету\n`;
-      simpleMessage += `👤 Клиент: Ольга Васильева\n`;
-      simpleMessage += `🆔 ID для поиска: 111222333\n`;
-      simpleMessage += `📱 Можно написать через: @olga_vasileva\n`;
-      simpleMessage += `\n💬 Сообщение клиента:\n"Не могу зайти в личный кабинет, забыла пароль"\n\n`;
-      simpleMessage += `⚡ Требуется срочный ответ!\n\n`;
-      simpleMessage += `🔍 Как найти клиента:\n`;
-      simpleMessage += `1. Скопируйте ID: 111222333\n`;
-      simpleMessage += `2. Используйте поиск в Telegram\n`;
-      simpleMessage += `3. Или найдите по username: @olga_vasileva\n`;
-      simpleMessage += `\n⏰ ${new Date().toLocaleString('ru-RU')}\n`;
-      simpleMessage += `#эскалация #access`;
+      // Автоматический тест с реальными данными
+      const autoMessage = `🔴 ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
+      autoMessage += `📋 Причина: 🛒 Клиент готов оформить заказ\n`;
+      autoMessage += `👤 Клиент: Андрей Могучев\n`;
+      autoMessage += `🆔 ID: 186757140\n`;
+      autoMessage += `\n📱 Связаться с клиентом:\n`;
+      autoMessage += `➤ https://t.me/aMoguchev\n`;
+      autoMessage += `➤ @aMoguchev\n`;
+      autoMessage += `\n💬 Сообщение клиента:\n"хочу оформить заказ через ИП"\n\n`;
+      autoMessage += `⚡ Требуется срочный ответ!\n\n`;
+      autoMessage += `📝 Если ссылка не работает:\n`;
+      autoMessage += `1. Скопируйте ID: 186757140\n`;
+      autoMessage += `2. Используйте поиск в Telegram\n`;
+      autoMessage += `3. Или найдите по username: @aMoguchev\n`;
+      autoMessage += `\n⏰ ${new Date().toLocaleString('ru-RU')}\n`;
+      autoMessage += `#эскалация #order`;
 
-      console.log(`\n📤 Отправка простого сообщения без кнопок...`);
+      console.log(`\n📤 Отправка автоматического теста с @aMoguchev...`);
 
       await client.sendMessage(MANAGER_USERNAME, {
-        message: simpleMessage
+        message: autoMessage
       });
 
-      console.log('✅ Простое сообщение отправлено');
-      console.log('📝 Менеджер должен будет найти клиента вручную');
+      console.log('✅ Сообщение отправлено');
+      console.log('🔗 Ссылка https://t.me/aMoguchev должна быть кликабельной');
     }
 
   } catch (error) {

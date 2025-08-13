@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Course {
+  id                String   @id @default(uuid())
+  title             String
+  description       String?
+  price             Float?
+  currency          String   @default("RUB")
+  duration          String?
+  format            String   // онлайн/офлайн/гибрид
+  instructor        String   // Елена Алексеюк или кураторы
+  category          String   // бестселлеры/выездные программы/онлайн программы/факультеты и т.д.
+  url               String   @unique
+  startDate         String?  // дата начала
+  modules           Int?     // количество модулей
+  certificateType   String?  // что получат по итогу
+  additionalInfo    String?  // дополнительная информация
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

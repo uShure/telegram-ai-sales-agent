@@ -1,0 +1,1 @@
+const sqlite3 = require('sqlite3').verbose(); const db = new sqlite3.Database('./courses.db'); db.run("DELETE FROM Course WHERE id = '18'", function(err) { if (err) { console.error('Ошибка:', err); } else { console.log('✅ Курс "Парикмахерский университет" успешно удален'); console.log('Удалено строк:', this.changes); } db.close(); });

@@ -45,7 +45,7 @@ export async function sendManagerNotificationDirect(
     try {
       await client.sendMessage(MANAGER_USERNAME, {
         message: message,
-        parseMode: 'markdown'
+        parseMode: 'html'
       });
 
       console.log('✅ Уведомление отправлено менеджеру через личный аккаунт');
@@ -75,7 +75,7 @@ export async function sendManagerNotificationDirect(
             const manager = result.users[0];
             await client.sendMessage(manager, {
               message: message,
-              parseMode: 'markdown'
+              parseMode: 'html'
             });
 
             console.log('✅ Сообщение отправлено через поиск');
@@ -112,31 +112,34 @@ function formatNotificationMessage(notification: ManagerNotification): string {
 
   const emoji = priorityEmoji[notification.priority];
 
-  let message = `${emoji} **ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА**\n\n`;
-  message += `**Причина:** ${notification.reason}\n`;
-  message += `**Клиент:** ${notification.clientName}\n`;
+  let message = `${emoji} <b>ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА</b>\n\n`;
+  message += `<b>Причина:</b> ${notification.reason}\n`;
+  message += `<b>Клиент:</b> ${notification.clientName}\n`;
 
-  // Делаем ID кликабельной ссылкой
-  message += `**ID:** [${notification.clientId}](tg://user?id=${notification.clientId})\n`;
+  // Используем правильный формат ссылки для Telegram
+  message += `<b>ID:</b> <a href="tg://user?id=${notification.clientId}">${notification.clientId}</a>\n`;
 
-  // Если есть username, тоже добавляем как ссылку
+  // Если есть username, добавляем
   if (notification.clientUsername) {
-    message += `**Username:** @${notification.clientUsername}\n`;
+    message += `<b>Username:</b> @${notification.clientUsername}\n`;
   }
 
-  message += `\n**Сообщение клиента:**\n"${notification.clientMessage}"\n\n`;
+  message += `\n<b>Сообщение клиента:</b>\n"${notification.clientMessage}"\n\n`;
 
   // Добавляем призыв к действию для высокого приоритета
   if (notification.priority === 'high') {
-    message += `⚡ **Требуется срочный ответ!**\n\n`;
+    message += `⚡ <b>Требуется срочный ответ!</b>\n\n`;
   }
 
-  // Добавляем инструкцию с кликабельной ссылкой
-  message += `💬 **Действие:** [Написать клиенту](tg://user?id=${notification.clientId})`;
+  // Добавляем инструкцию
+  message += `💬 <b>Действие:</b> `;
 
-  // Дублируем username если есть
+  // Если есть username - используем его
   if (notification.clientUsername) {
-    message += ` или @${notification.clientUsername}`;
+    message += `Напишите @${notification.clientUsername}`;
+  } else {
+    // Если нет username, даем ссылку и инструкцию
+    message += `<a href="tg://user?id=${notification.clientId}">Написать клиенту</a>`;
   }
 
   message += `\n\n📅 ${new Date().toLocaleString('ru-RU')}\n`;

@@ -116,25 +116,27 @@ function formatNotificationMessage(notification: ManagerNotification): string {
   message += `**Причина:** ${notification.reason}\n`;
   message += `**Клиент:** ${notification.clientName}\n`;
 
+  // Делаем ID кликабельной ссылкой
+  message += `**ID:** [${notification.clientId}](tg://user?id=${notification.clientId})\n`;
+
+  // Если есть username, тоже добавляем как ссылку
   if (notification.clientUsername) {
     message += `**Username:** @${notification.clientUsername}\n`;
   }
 
-  message += `**ID:** ${notification.clientId}\n\n`;
-  message += `**Сообщение клиента:**\n"${notification.clientMessage}"\n\n`;
+  message += `\n**Сообщение клиента:**\n"${notification.clientMessage}"\n\n`;
 
   // Добавляем призыв к действию для высокого приоритета
   if (notification.priority === 'high') {
     message += `⚡ **Требуется срочный ответ!**\n\n`;
   }
 
-  // Добавляем инструкцию
-  message += `💬 **Действие:** Напишите клиенту напрямую`;
+  // Добавляем инструкцию с кликабельной ссылкой
+  message += `💬 **Действие:** [Написать клиенту](tg://user?id=${notification.clientId})`;
 
+  // Дублируем username если есть
   if (notification.clientUsername) {
-    message += ` @${notification.clientUsername}`;
-  } else {
-    message += ` (ID: ${notification.clientId})`;
+    message += ` или @${notification.clientUsername}`;
   }
 
   message += `\n\n📅 ${new Date().toLocaleString('ru-RU')}\n`;
@@ -292,7 +294,7 @@ export async function initializeNotificationTables(): Promise<void> {
 export async function sendTestNotification(client: TelegramClient): Promise<boolean> {
   const testNotification: ManagerNotification = {
     clientName: 'Тестовый клиент',
-    clientId: 'test_123',
+    clientId: '123456789',
     clientMessage: 'Хочу купить курс ДНК ЦВЕТА, помогите оформить заказ',
     reason: '🧪 Тестирование системы эскалации',
     category: 'test',

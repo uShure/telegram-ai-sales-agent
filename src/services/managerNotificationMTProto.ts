@@ -29,67 +29,6 @@ interface ManagerNotification {
 }
 
 /**
- * Создает inline mention для пользователя
- */
-function createUserMention(userId: string, userName: string, offset: number): any {
-  return new Api.MessageEntityMentionName({
-    offset: offset,
-    length: userName.length,
-    userId: BigInt(userId)
-  });
-}
-
-/**
- * Форматирует сообщение с inline mentions
- */
-function formatNotificationWithMentions(notification: ManagerNotification): {
-  message: string;
-  entities: any[];
-} {
-  const priorityEmoji = {
-    high: '🔴',
-    medium: '🟡',
-    low: '🟢'
-  };
-
-  const emoji = priorityEmoji[notification.priority];
-  const entities: any[] = [];
-
-  let message = `${emoji} ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
-  message += `Причина: ${notification.reason}\n`;
-  message += `Клиент: `;
-
-  // Сохраняем позицию для mention
-  const mentionOffset = message.length;
-  message += notification.clientName;
-
-  // Создаем mention entity
-  entities.push(createUserMention(notification.clientId, notification.clientName, mentionOffset));
-
-  message += `\nID: ${notification.clientId}\n`;
-
-  // Если есть username, добавляем
-  if (notification.clientUsername) {
-    message += `Username: @${notification.clientUsername}\n`;
-  }
-
-  message += `\nСообщение клиента:\n"${notification.clientMessage}"\n\n`;
-
-  // Добавляем призыв к действию для высокого приоритета
-  if (notification.priority === 'high') {
-    message += `⚡ Требуется срочный ответ!\n\n`;
-  }
-
-  // Добавляем инструкцию
-  message += `💬 Действие: Нажмите на имя клиента выше, чтобы написать ему\n\n`;
-
-  message += `📅 ${new Date().toLocaleString('ru-RU')}\n`;
-  message += `#эскалация #${notification.category}`;
-
-  return { message, entities };
-}
-
-/**
  * Отправляет уведомление менеджеру через личный аккаунт
  */
 export async function sendManagerNotificationDirect(
@@ -99,18 +38,21 @@ export async function sendManagerNotificationDirect(
   try {
     console.log(`📤 Отправка уведомления менеджеру @${MANAGER_USERNAME}...`);
 
-    // Форматируем сообщение с inline mentions
-    const { message, entities } = formatNotificationWithMentions(notification);
+    // Форматируем сообщение
+    const message = formatNotificationMessage(notification);
+
+    // Создаем inline кнопку для перехода к клиенту
+    const buttons = createClientButtons(notification);
 
     // Отправляем сообщение менеджеру напрямую
     try {
       await client.sendMessage(MANAGER_USERNAME, {
         message: message,
-        formattingEntities: entities
+        buttons: buttons
       });
 
       console.log('✅ Уведомление отправлено менеджеру через личный аккаунт');
-      console.log('   Клиент кликабелен через inline mention');
+      console.log('   Добавлена кнопка для быстрого перехода к клиенту');
 
       // Сохраняем в историю эскалаций
       escalationHistory.set(notification.clientId, new Date());
@@ -137,7 +79,7 @@ export async function sendManagerNotificationDirect(
             const manager = result.users[0];
             await client.sendMessage(manager, {
               message: message,
-              formattingEntities: entities
+              buttons: buttons
             });
 
             console.log('✅ Сообщение отправлено через поиск');
@@ -155,25 +97,23 @@ export async function sendManagerNotificationDirect(
   } catch (error: any) {
     console.error('❌ Ошибка при отправке уведомления менеджеру:', error.message);
 
-    // Если inline mention не работает, пробуем альтернативный метод
-    console.log('🔄 Пробуем альтернативный метод с buttons...');
+    // Пробуем отправить без кнопок
+    console.log('🔄 Пробуем отправить без кнопок...');
 
     try {
-      const fallbackMessage = formatFallbackMessage(notification);
-      const button = createClientButton(notification);
+      const simpleMessage = formatSimpleMessage(notification);
 
       await client.sendMessage(MANAGER_USERNAME, {
-        message: fallbackMessage,
-        buttons: button
+        message: simpleMessage
       });
 
-      console.log('✅ Отправлено с кнопкой для перехода к клиенту');
+      console.log('✅ Отправлено простое сообщение');
       escalationHistory.set(notification.clientId, new Date());
       await saveEscalationToDatabase(notification);
       return true;
 
     } catch (fallbackError) {
-      console.error('❌ Альтернативный метод тоже не сработал:', fallbackError);
+      console.error('❌ Не удалось отправить даже простое сообщение:', fallbackError);
 
       // Сохраняем уведомление для повторной отправки
       await saveNotificationForLater(notification);
@@ -183,24 +123,42 @@ export async function sendManagerNotificationDirect(
 }
 
 /**
- * Создает кнопку для перехода к клиенту
+ * Создает inline кнопки для перехода к клиенту
  */
-function createClientButton(notification: ManagerNotification): any {
-  // Создаем inline кнопку с переходом к чату с клиентом
-  return [
-    [
-      new Api.KeyboardButtonUrl({
-        text: `💬 Написать ${notification.clientName}`,
-        url: `tg://user?id=${notification.clientId}`
-      })
-    ]
-  ];
+function createClientButtons(notification: ManagerNotification): any[][] {
+  const buttons = [];
+
+  // Основная кнопка - написать клиенту
+  const mainButton = {
+    text: `💬 Написать ${notification.clientName}`,
+    url: `tg://user?id=${notification.clientId}`
+  };
+
+  buttons.push([mainButton]);
+
+  // Если есть username, добавляем альтернативную кнопку
+  if (notification.clientUsername) {
+    buttons.push([{
+      text: `📱 @${notification.clientUsername}`,
+      url: `https://t.me/${notification.clientUsername}`
+    }]);
+  }
+
+  // Для высокого приоритета добавляем кнопку быстрого ответа
+  if (notification.priority === 'high') {
+    buttons.push([{
+      text: '🚨 Срочно ответить',
+      url: `tg://user?id=${notification.clientId}`
+    }]);
+  }
+
+  return buttons;
 }
 
 /**
- * Форматирует fallback сообщение без mentions
+ * Форматирует сообщение для менеджера
  */
-function formatFallbackMessage(notification: ManagerNotification): string {
+function formatNotificationMessage(notification: ManagerNotification): string {
   const priorityEmoji = {
     high: '🔴',
     medium: '🟡',
@@ -210,28 +168,68 @@ function formatFallbackMessage(notification: ManagerNotification): string {
   const emoji = priorityEmoji[notification.priority];
 
   let message = `${emoji} ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
-  message += `Причина: ${notification.reason}\n`;
-  message += `Клиент: ${notification.clientName}\n`;
-  message += `ID для поиска: ${notification.clientId}\n`;
+  message += `📋 Причина: ${notification.reason}\n`;
+  message += `👤 Клиент: ${notification.clientName}\n`;
+  message += `🆔 ID: ${notification.clientId}\n`;
 
   if (notification.clientUsername) {
-    message += `Username: @${notification.clientUsername}\n`;
+    message += `📱 Username: @${notification.clientUsername}\n`;
   }
 
-  message += `\nСообщение клиента:\n"${notification.clientMessage}"\n\n`;
+  message += `\n💬 Сообщение клиента:\n"${notification.clientMessage}"\n\n`;
 
   if (notification.priority === 'high') {
     message += `⚡ Требуется срочный ответ!\n\n`;
   }
 
-  message += `💬 Действие: Нажмите кнопку ниже или найдите клиента по ID\n\n`;
-  message += `📅 ${new Date().toLocaleString('ru-RU')}\n`;
+  message += `👇 Используйте кнопки ниже для быстрого перехода к клиенту\n\n`;
+
+  message += `⏰ ${new Date().toLocaleString('ru-RU')}\n`;
   message += `#эскалация #${notification.category}`;
 
   return message;
 }
 
-// Старая функция formatNotificationMessage удалена - используем formatNotificationWithMentions
+/**
+ * Форматирует простое сообщение без кнопок
+ */
+function formatSimpleMessage(notification: ManagerNotification): string {
+  const priorityEmoji = {
+    high: '🔴',
+    medium: '🟡',
+    low: '🟢'
+  };
+
+  const emoji = priorityEmoji[notification.priority];
+
+  let message = `${emoji} ТРЕБУЕТСЯ ПОМОЩЬ МЕНЕДЖЕРА\n\n`;
+  message += `📋 Причина: ${notification.reason}\n`;
+  message += `👤 Клиент: ${notification.clientName}\n`;
+  message += `🆔 ID для поиска: ${notification.clientId}\n`;
+
+  if (notification.clientUsername) {
+    message += `📱 Можно написать через: @${notification.clientUsername}\n`;
+  }
+
+  message += `\n💬 Сообщение клиента:\n"${notification.clientMessage}"\n\n`;
+
+  if (notification.priority === 'high') {
+    message += `⚡ Требуется срочный ответ!\n\n`;
+  }
+
+  message += `🔍 Как найти клиента:\n`;
+  message += `1. Скопируйте ID: ${notification.clientId}\n`;
+  message += `2. Используйте поиск в Telegram\n`;
+
+  if (notification.clientUsername) {
+    message += `3. Или найдите по username: @${notification.clientUsername}\n`;
+  }
+
+  message += `\n⏰ ${new Date().toLocaleString('ru-RU')}\n`;
+  message += `#эскалация #${notification.category}`;
+
+  return message;
+}
 
 /**
  * Сохраняет информацию об эскалации в базу данных
@@ -383,10 +381,11 @@ export async function sendTestNotification(client: TelegramClient): Promise<bool
   const testNotification: ManagerNotification = {
     clientName: 'Тестовый клиент',
     clientId: '123456789',
+    clientUsername: 'test_client',
     clientMessage: 'Хочу купить курс ДНК ЦВЕТА, помогите оформить заказ',
     reason: '🧪 Тестирование системы эскалации',
     category: 'test',
-    priority: 'low'
+    priority: 'high'
   };
 
   console.log('📤 Отправка тестового уведомления менеджеру...');
@@ -396,6 +395,7 @@ export async function sendTestNotification(client: TelegramClient): Promise<bool
   if (result) {
     console.log('✅ Тестовое уведомление успешно отправлено!');
     console.log('📱 Проверьте личные сообщения менеджера @' + MANAGER_USERNAME);
+    console.log('🔘 Должны быть видны кнопки для перехода к клиенту');
   } else {
     console.log('❌ Не удалось отправить тестовое уведомление');
     console.log('Убедитесь, что аккаунт может писать менеджеру');

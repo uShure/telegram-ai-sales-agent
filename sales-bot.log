@@ -1,0 +1,29 @@
+[dotenv@17.2.1] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+📚 Подключение к базе данных курсов: /home/project/telegram-ai-sales-agent/courses.db
+✅ База данных курсов подключена
+[dotenv@17.2.1] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.1] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.1] injecting env (0) from .env -- tip: 📡 observe env with Radar: https://dotenvx.com/radar
+🤖 SOINTERA AI Sales Agent (Enhanced)
+=====================================
+
+[33m[2025-08-02T08:06:22.039] [INFO] - [Running gramJS version 2.26.21][0m
+🚀 Запуск Enhanced Telegram клиента...
+[33m[2025-08-02T08:06:22.042] [INFO] - [Connecting to 149.154.167.41:80/TCPFull...][0m
+[33m[2025-08-02T08:06:22.202] [INFO] - [Connection to 149.154.167.41:80/TCPFull complete!][0m
+[33m[2025-08-02T08:06:22.203] [INFO] - [Using LAYER 198 for initial connect][0m
+❌ Критическая ошибка: 23 |         if (m) {
+24 |             const capture = m.length === 2 ? parseInt(m[1]) : null;
+25 |             return new Cls({ request: request, capture: capture });
+26 |         }
+27 |     }
+28 |     return new RPCBaseErrors_1.RPCError(rpcError.errorMessage, request, rpcError.errorCode);
+                ^
+RPCError: 406: AUTH_KEY_DUPLICATED (caused by InvokeWithLayer)
+       code: 406,
+ errorMessage: "AUTH_KEY_DUPLICATED",
+
+      at RPCMessageToError (/home/project/telegram-ai-sales-agent/node_modules/telegram/errors/index.js:28:12)
+      at _handleRPCResult (/home/project/telegram-ai-sales-agent/node_modules/telegram/network/MTProtoSender.js:561:40)
+      at _processMessage (/home/project/telegram-ai-sales-agent/node_modules/telegram/network/MTProtoSender.js:492:15)
+
